@@ -15,6 +15,7 @@ import { IconRenderer } from '../../components/common/IconRenderer';
 import { Button } from '../../components/common/Button';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import { LocationPickerMap, type LocationPickerChange } from '../../components/common/LocationPickerMap';
 import type { ComplaintCategory, PriorityLevel } from '../../types';
 
 export const SubmitComplaintPage: React.FC = () => {
@@ -30,21 +31,36 @@ export const SubmitComplaintPage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'Normal' | 'High' | 'Emergency'>('Normal');
-  const [ward, setWard] = useState(currentCitizen?.ward || 'Ward 14 - North Central District');
+  const [ward, setWard] = useState(currentCitizen?.ward || 'Ward 14 - North Central District (Metro Corridor)');
+  
+  // Real coordinates & address state
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [formattedAddress, setFormattedAddress] = useState<string>('');
   const [landmark, setLandmark] = useState('');
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [hasDetectedGPS, setHasDetectedGPS] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedTicketId, setGeneratedTicketId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleDetectGPS = () => {
-    setIsDetectingLocation(true);
-    setTimeout(() => {
-      setIsDetectingLocation(false);
-      setHasDetectedGPS(true);
-      setLandmark('Current GPS: 18.5204° N, 73.8567° E (Within 5m accuracy)');
-    }, 800);
+  const handleLocationChange = (loc: LocationPickerChange) => {
+    setLatitude(loc.lat);
+    setLongitude(loc.lng);
+    setFormattedAddress(loc.address);
+    setLocationError(null);
+    if (!landmark) {
+      setLandmark(loc.address.split(',')[0] || '');
+    }
+  };
+
+  const handleContinueToPhoto = () => {
+    if (!latitude && !landmark.trim() && !formattedAddress.trim()) {
+      setLocationError('Please pin your location on the map or enter a street address before continuing.');
+      return;
+    }
+    setLocationError(null);
+    setStep(4);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,13 +75,22 @@ export const SubmitComplaintPage: React.FC = () => {
         infrastructure: 'Public Parks & Civic Assets',
       };
 
+      const resolvedLocation = formattedAddress 
+        ? (landmark.trim() && !formattedAddress.toLowerCase().includes(landmark.trim().toLowerCase()) 
+            ? `${landmark.trim()} • ${formattedAddress}` 
+            : formattedAddress)
+        : (landmark.trim() || 'Sector 14 Municipal Area');
+
       const created = addComplaint({
         title: title.trim() || `Civic Grievance (${catMap[category] || 'General'})`,
         category: category as ComplaintCategory,
         categoryName: catMap[category] || 'General Civic Grievance',
         description: description.trim() || 'Civic issue reported for immediate municipal redressal.',
         ward: ward || currentCitizen?.ward || 'Ward 14 - North Central District',
-        location: landmark.trim() || 'Sector 14 Municipal Area',
+        location: resolvedLocation,
+        latitude: latitude ?? undefined,
+        longitude: longitude ?? undefined,
+        formattedAddress: formattedAddress || undefined,
         priority: priority === 'Normal' ? 'Medium' : (priority as PriorityLevel),
         citizenName: currentCitizen?.fullName || 'Resident Citizen',
       });
@@ -282,58 +307,67 @@ export const SubmitComplaintPage: React.FC = () => {
                 {/* Step 3: Location */}
                 {step === 3 && (
                   <div className="space-y-4 animate-in fade-in duration-200">
-                    <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 text-xs text-blue-900 font-semibold">
-                        <MapPin className="w-5 h-5 text-blue-600 shrink-0" />
-                        <span>Auto-detect exact geolocation via browser GPS</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="sm"
-                        onClick={handleDetectGPS}
-                        isLoading={isDetectingLocation}
-                      >
-                        {hasDetectedGPS ? 'GPS Locked (5m)' : 'Pin My Location'}
-                      </Button>
-                    </div>
-
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                        Municipal Ward / Zone *
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
+                        <span>Pin Grievance Location on Interactive Map *</span>
+                        <span className="text-[11px] font-medium text-slate-500 normal-case">
+                          Real-time GPS • OpenStreetMap • Search
+                        </span>
                       </label>
-                      <select
-                        value={ward}
-                        onChange={(e) => setWard(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
-                      >
-                        <option>Ward 14 - North Central District (Metro Corridor)</option>
-                        <option>Ward 08 - Heritage & Civic Core</option>
-                        <option>Ward 22 - Green Valley East</option>
-                        <option>Ward 31 - Tech Park & Industrial Zone</option>
-                        <option>Ward 48 - South Hills Suburban</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
-                        Street Address & Landmark *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Near Metro Pillar 142, Opp. Central Supermarket"
-                        value={landmark}
-                        onChange={(e) => setLandmark(e.target.value)}
-                        className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      <LocationPickerMap
+                        latitude={latitude}
+                        longitude={longitude}
+                        formattedAddress={formattedAddress}
+                        onLocationChange={handleLocationChange}
                       />
+                    </div>
+
+                    {locationError && (
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>{locationError}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                          Municipal Ward / Zone *
+                        </label>
+                        <select
+                          value={ward}
+                          onChange={(e) => setWard(e.target.value)}
+                          className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white"
+                        >
+                          <option>Ward 14 - North Central District (Metro Corridor)</option>
+                          <option>Ward 08 - Heritage & Civic Core</option>
+                          <option>Ward 22 - Green Valley East</option>
+                          <option>Ward 31 - Tech Park & Industrial Zone</option>
+                          <option>Ward 48 - South Hills Suburban</option>
+                        </select>
+                        <p className="text-[10px] text-slate-400 mt-1">Select your administrative ward for nodal officer dispatch.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                          Landmark / Location Specifics (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Near Metro Pillar 142, Opp. Central Supermarket"
+                          value={landmark}
+                          onChange={(e) => setLandmark(e.target.value)}
+                          className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Add specific landmark or gate details for field engineers.</p>
+                      </div>
                     </div>
 
                     <div className="flex justify-between pt-4 border-t border-slate-100">
                       <Button type="button" variant="outline" size="sm" onClick={() => setStep(2)} icon={<ArrowLeft className="w-4 h-4" />}>
                         Back
                       </Button>
-                      <Button type="button" variant="primary" size="sm" onClick={() => setStep(4)} icon={<ArrowRight className="w-4 h-4" />} iconPosition="right">
+                      <Button type="button" variant="primary" size="sm" onClick={handleContinueToPhoto} icon={<ArrowRight className="w-4 h-4" />} iconPosition="right">
                         Continue to Photo
                       </Button>
                     </div>
@@ -363,6 +397,12 @@ export const SubmitComplaintPage: React.FC = () => {
                       <p className="text-slate-600"><strong>Department:</strong> {category.toUpperCase()}</p>
                       <p className="text-slate-600"><strong>Ward:</strong> {ward}</p>
                       <p className="text-slate-600"><strong>Priority:</strong> {priority}</p>
+                      {latitude && longitude && (
+                        <p className="text-slate-600">
+                          <strong>Geo-Coordinates:</strong> <span className="font-mono text-blue-700 font-bold">{latitude.toFixed(6)}° N, {longitude.toFixed(6)}° E</span>
+                        </p>
+                      )}
+                      <p className="text-slate-600"><strong>Address:</strong> {formattedAddress || landmark || 'Sector 14 Municipal Area'}</p>
                     </div>
 
                     <div className="flex justify-between pt-4 border-t border-slate-100">

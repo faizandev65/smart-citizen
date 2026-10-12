@@ -41,6 +41,9 @@ export interface Complaint {
   timeline: ComplaintTrackingStep[];
   beforeImage?: string;
   afterImage?: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
 }
 
 export interface ServiceRequest {

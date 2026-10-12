@@ -9,7 +9,9 @@ import {
   Phone,
   ShieldCheck,
   Printer,
-  Layers
+  Layers,
+  Crosshair,
+  ExternalLink
 } from 'lucide-react';
 import { SAMPLE_COMPLAINTS } from '../../data/mockData';
 import { Button } from '../../components/common/Button';
@@ -115,6 +117,21 @@ export const ComplaintDetailsPage: React.FC = () => {
               <Layers className="w-4 h-4 text-indigo-500" />
               <strong>Ward:</strong> {complaint.ward}
             </span>
+            {complaint.latitude && complaint.longitude && (
+              <span className="flex items-center gap-1.5">
+                <Crosshair className="w-4 h-4 text-blue-600" />
+                <strong>GPS:</strong>
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${complaint.latitude}&mlon=${complaint.longitude}#map=17/${complaint.latitude}/${complaint.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 hover:underline inline-flex items-center gap-1 font-semibold"
+                >
+                  <span>{complaint.latitude.toFixed(6)}° N, {complaint.longitude.toFixed(6)}° E</span>
+                  <ExternalLink className="w-3 h-3 text-blue-500" />
+                </a>
+              </span>
+            )}
           </div>
         </div>
       </div>

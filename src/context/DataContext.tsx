@@ -28,6 +28,9 @@ interface DataContextType {
     citizenName?: string;
     customId?: string;
     beforeImage?: string;
+    latitude?: number;
+    longitude?: number;
+    formattedAddress?: string;
   }) => Complaint;
   updateComplaintStatus: (
     id: string,
@@ -164,6 +167,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     citizenName?: string;
     customId?: string;
     beforeImage?: string;
+    latitude?: number;
+    longitude?: number;
+    formattedAddress?: string;
   }): Complaint => {
     const newId = data.customId || `SC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date();
@@ -178,6 +184,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       description: data.description.trim(),
       ward: data.ward,
       location: data.location.trim() || 'Sector 14 Municipal Area',
+      latitude: data.latitude,
+      longitude: data.longitude,
+      formattedAddress: data.formattedAddress,
       priority: data.priority,
       status: 'Submitted',
       submittedAt: formattedDate,
